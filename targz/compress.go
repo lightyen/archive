@@ -74,6 +74,14 @@ func Compress(destination string, assets ...string) error {
 			hdr.Name = filepath.ToSlash(filepath.Join(filepath.Base(root), strings.TrimPrefix(path, root)))
 		}
 
+		if !info.Mode().IsRegular() {
+			if hdr.Typeflag == tar.TypeSymlink {
+				i, _ := os.Readlink(path)
+				t := filepath.ToSlash(filepath.Join(filepath.Base(root), strings.TrimPrefix(i, root)))
+				hdr.Linkname = t
+			}
+		}
+
 		if err := dst.WriteHeader(hdr); err != nil {
 			return err
 		}

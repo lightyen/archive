@@ -3,13 +3,19 @@ package targz
 import (
 	"archive/tar"
 	"compress/gzip"
+	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 )
 
-func Extract(destination string, src io.Reader) error {
-	gr, err := gzip.NewReader(src)
+func Extract(destination string, src string) error {
+	f, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	gr, err := gzip.NewReader(f)
 	if err != nil {
 		return err
 	}
@@ -51,6 +57,10 @@ func Extract(destination string, src io.Reader) error {
 func writeNewFile(filename string, in io.Reader, mode os.FileMode) error {
 	dst, err := os.Create(filename)
 	if err != nil {
+		if errors.Is(err, os.ErrPermission) {
+			fmt.Println("warning:", err)
+			return nil
+		}
 		return err
 	}
 	defer dst.Close()
@@ -64,7 +74,7 @@ func writeNewFile(filename string, in io.Reader, mode os.FileMode) error {
 }
 
 func writeNewSymbolicLink(name string, target string) error {
-	if err := os.Remove(name); err != nil && err != os.ErrNotExist {
+	if err := os.Remove(name); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
 	}
 	if err := os.Symlink(target, name); err != nil {
@@ -74,7 +84,7 @@ func writeNewSymbolicLink(name string, target string) error {
 }
 
 func writeNewHardLink(name string, target string) error {
-	if err := os.Remove(name); err != nil && err != os.ErrNotExist {
+	if err := os.Remove(name); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
 	}
 	if err := os.Link(target, name); err != nil {

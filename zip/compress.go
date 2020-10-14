@@ -52,11 +52,8 @@ func Compress(destination string, assets ...string) error {
 				return nil
 			}
 		}
-		hdr, err := zip.FileInfoHeader(info)
-		if err != nil {
-			return err
-		}
 
+		var name string
 		if skip {
 			rel, err := filepath.Rel(assets[0], path)
 			if err != nil {
@@ -65,18 +62,37 @@ func Compress(destination string, assets ...string) error {
 			if rel == "." {
 				return nil // skip
 			}
-			hdr.Name = filepath.ToSlash(rel)
+			name = filepath.ToSlash(rel)
 		} else {
-			hdr.Name = filepath.ToSlash(filepath.Join(filepath.Base(root), strings.TrimPrefix(path, root)))
+			name = filepath.ToSlash(filepath.Join(filepath.Base(root), strings.TrimPrefix(path, root)))
+		}
+
+		switch {
+		case info.Mode().IsDir():
+			if !strings.HasSuffix(name, "/") {
+				name = name + "/"
+			}
+		case info.Mode()&os.ModeSymlink == os.ModeSymlink:
+			info, err = os.Stat(path)
+			if err != nil {
+				return err
+			}
+		case !info.Mode().IsRegular():
+			return nil
+		}
+
+		hdr, err := zip.FileInfoHeader(info)
+		if err != nil {
+			return err
+		}
+		hdr.Name = name
+		w, err := dst.CreateHeader(hdr)
+		if err != nil {
+			return err
 		}
 
 		if !info.Mode().IsRegular() {
 			return nil
-		}
-
-		w, err := dst.CreateHeader(hdr)
-		if err != nil {
-			return err
 		}
 
 		file, err := os.Open(path)
@@ -91,6 +107,7 @@ func Compress(destination string, assets ...string) error {
 	}
 
 	for _, a := range assets {
+		a = filepath.Clean(a)
 		info, err := os.Stat(a)
 		if err != nil {
 			return err

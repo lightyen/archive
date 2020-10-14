@@ -2,6 +2,8 @@ package zip
 
 import (
 	"archive/zip"
+	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -19,12 +21,14 @@ func Extract(destination string, src string) error {
 		if err != nil {
 			return err
 		}
-		err = writeNewFile(filepath.Join(destination, file.Name), f, file.Mode())
-		if err != nil {
+		if !file.Mode().IsRegular() {
+			continue
+		}
+
+		if err := writeNewFile(filepath.Join(destination, file.Name), f, file.Mode()); err != nil {
 			return err
 		}
 	}
-
 	return nil
 }
 
@@ -35,6 +39,10 @@ func writeNewFile(name string, in io.Reader, mode os.FileMode) error {
 	}
 	dst, err := os.Create(name)
 	if err != nil {
+		if errors.Is(err, os.ErrPermission) {
+			fmt.Println("warning:", err)
+			return nil
+		}
 		return err
 	}
 	defer dst.Close()
@@ -44,26 +52,6 @@ func writeNewFile(name string, in io.Reader, mode os.FileMode) error {
 		}
 	}
 	if _, err = io.Copy(dst, in); err != nil {
-		return err
-	}
-	return nil
-}
-
-func writeNewSymbolicLink(name string, target string) error {
-	if err := os.Remove(name); err != nil && err != os.ErrNotExist {
-		return err
-	}
-	if err := os.Symlink(target, name); err != nil {
-		return err
-	}
-	return nil
-}
-
-func writeNewHardLink(name string, target string) error {
-	if err := os.Remove(name); err != nil && err != os.ErrNotExist {
-		return err
-	}
-	if err := os.Link(target, name); err != nil {
 		return err
 	}
 	return nil

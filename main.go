@@ -7,12 +7,10 @@ import (
 )
 
 func main() {
-	err := zip.Compress("./test.zip", ".")
-	if err != nil {
+	if err := zip.Compress("./test.zip", "."); err != nil {
 		fmt.Println(err)
 	}
-	err = zip.Extract("./data", "./test.zip")
-	if err != nil {
+	if err := zip.Extract("./test", "./test.zip"); err != nil {
 		fmt.Println(err)
 	}
 }
